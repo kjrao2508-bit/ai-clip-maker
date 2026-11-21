@@ -1,0 +1,58 @@
+name: Make clips
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Stream or VOD link
+        required: true
+      hype:
+        description: Number of hype clips
+        default: "5"
+      key:
+        description: Number of key gameplay clips
+        default: "3"
+      roi:
+        description: Optional region x,y,w,h (fractions)
+        default: ""
+      vertical:
+        description: 9:16 for Shorts
+        default: "false"
+      captions:
+        description: Add AI captions
+        default: "true"
+
+jobs:
+  clip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ffmpeg and Python packages
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          pip install -r requirements.txt
+      - name: Generate clips
+        env:
+          URL: ${{ inputs.url }}
+          HYPE: ${{ inputs.hype }}
+          KEY: ${{ inputs.key }}
+          ROI: ${{ inputs.roi }}
+          VERTICAL: ${{ inputs.vertical }}
+          CAPTIONS: ${{ inputs.captions }}
+        run: |
+          ARGS=()
+          [ "$VERTICAL" = "true" ] && ARGS+=(--vertical)
+          [ "$CAPTIONS" = "true" ] && ARGS+=(--captions)
+          [ -n "$ROI" ] && ARGS+=(--roi "$ROI")
+          python clipper.py "$URL" --hype "$HYPE" --key "$KEY" "${ARGS[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clips
+          path: |
+            clips/*.mp4
+            clips/manifest.json
+  
